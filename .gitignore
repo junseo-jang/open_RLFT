@@ -1,0 +1,14 @@
+# Large model output
+sft_output/
+
+# Logging
+wandb/
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
