@@ -20,7 +20,7 @@ mkdir -p ${OUTPUT_DIR}
 cd ${NEMO_SKILLS_DIR}
 
 # ========== 벤치마크 (쉼표로 구분, 공백 사용 시 나머지가 Hydra로 넘어가 파싱 오류 발생) ==========
-BENCHMARKS="ifeval"
+BENCHMARKS="ifeval,gsm8k,human-eval"
 
 ns eval \
     --server_type ${SERVER_TYPE} \
