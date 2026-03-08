@@ -2,10 +2,9 @@
 OUTPUT_DIR="./results"
 LOG_DIR="./logs"
 MODEL_DIR="./model/qwen3-1.7b-sft-by-tulu3-subsets"
-PER_DEVICE_TRAIN_BATCH_SIZE=1
-GRADIENT_ACCUMULATION_STEPS=8
+PER_DEVICE_TRAIN_BATCH_SIZE=4
+GRADIENT_ACCUMULATION_STEPS=4
 NUM_GENERATIONS=8
-MAX_COMPLETION_LENGTH=2048
 BETA=0.01
 
 
@@ -43,7 +42,7 @@ trap cleanup SIGINT SIGTERM EXIT
 CUDA_VISIBLE_DEVICES=0 trl vllm-serve \
     --model $MODEL_DIR \
     --gpu-memory-utilization 0.9 \
-    --max-model-len 2048 &
+    --max-model-len 8192 &
 VLLM_PID=$!
 
 echo "vLLM server started at $(date)" | tee -a $LOG_FILE
@@ -54,14 +53,13 @@ done
 echo "vLLM server ready."
 
 # 2. GRPO 학습 실행 (나머지 GPU 7개)
-CUDA_VISIBLE_DEVICES=1 accelerate launch --num_processes=1 run_grpo.py \
+CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 accelerate launch --num_processes=7 run_grpo.py \
     --model_name $MODEL_DIR \
     --vllm_mode server \
     --vllm_model_impl vllm \
     --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
     --gradient_accumulation_steps $GRADIENT_ACCUMULATION_STEPS \
     --num_generations $NUM_GENERATIONS \
-    --max_completion_length $MAX_COMPLETION_LENGTH \
     --beta $BETA \
     2>&1 | tee -a $LOG_FILE
 
