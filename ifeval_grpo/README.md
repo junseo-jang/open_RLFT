@@ -90,6 +90,7 @@ GPU 1~7     → GRPO 학습 (accelerate, 7 processes)
 ## Evaluation Results
 
 전체 데이터의 약 4%, 250 steps 학습 결과입니다. 자세한 점수는 [eval_results.md](eval_results.md)를 참고
+
 Train Wandb : https://wandb.ai/jjs97612/Open_RLFT?nw=nwuserjjs97612
 
 | Benchmark | Before GRPO | After GRPO | Δ |
