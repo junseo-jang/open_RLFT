@@ -89,7 +89,8 @@ GPU 1~7     → GRPO 학습 (accelerate, 7 processes)
 
 ## Evaluation Results
 
-전체 데이터의 약 4%, 250 steps 학습 결과입니다. 자세한 점수는 [eval_results.md](eval_results.md)를 참고하세요.
+전체 데이터의 약 4%, 250 steps 학습 결과입니다. 자세한 점수는 [eval_results.md](eval_results.md)를 참고
+Train Wandb : https://wandb.ai/jjs97612/Open_RLFT?nw=nwuserjjs97612
 
 | Benchmark | Before GRPO | After GRPO | Δ |
 |-----------|:-----------:|:----------:|:---:|
@@ -99,5 +100,3 @@ GPU 1~7     → GRPO 학습 (accelerate, 7 processes)
 | MATH | 45.06 | 15.56 | -29.50 |
 | HumanEval | 59.15 | 46.34 | -12.81 |
 | MBPP | 69.84 | 62.17 | -7.67 |
-
-> IFEval·IFBench은 크게 향상되었으나, IFEval 데이터만으로 학습한 만큼 수학·코딩 성능이 하락하는 reward hacking 양상이 나타납니다.
