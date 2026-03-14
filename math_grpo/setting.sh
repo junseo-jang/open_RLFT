@@ -15,3 +15,4 @@ cd NeMo-Skills
 pip install -e .
 
 pip install -r /root/open_RLFT/math_grpo/requirements.txt --extra-index-url https://download.pytorch.org/whl/cu129
+python /root/open_RLFT/math_grpo/download.py
