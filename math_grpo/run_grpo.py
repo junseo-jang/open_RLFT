@@ -4,7 +4,8 @@ from trl import GRPOTrainer, GRPOConfig
 from datasets import load_dataset, concatenate_datasets
 import argparse
 import wandb
-from nemo_skills.evaluation.math_grader import extract_answer, math_equal
+# from nemo_skills.evaluation.math_grader import extract_answer, math_equal
+from open_instruct.my_utils import MathVerifier, GSM8KVerifier
 
 # ============================================================
 # Dataset 전처리
@@ -76,7 +77,7 @@ if __name__ == "__main__":
         "{%- if tools %}", "{%- if false %}"
     )
     # 공통 컬럼만 남기고 합치기
-    common_cols = ["prompt", "ground_truth"]
+    common_cols = ["prompt", "ground_truth", "dataset"]
     ds1_train = ds1_train.select_columns(common_cols)
     ds2_train = ds2_train.select_columns(common_cols)
     train_dataset = concatenate_datasets([ds1_train, ds2_train]).shuffle(seed=42)
@@ -117,17 +118,22 @@ if __name__ == "__main__":
         )
 
     # 두 데이터셋 합쳤으므로 통합 reward 사용
-    # extract_answer로 답 추출 후 math_equal로 ground_truth와 비교
+    gsm8k_verifier = GSM8KVerifier()
+    math_verifier = MathVerifier()
+
     def math_reward(completions, **kwargs):
-        """정답이면 1.0, 아니면 0.0 반환."""
         ground_truths = kwargs["ground_truth"]
-        completion_contents = [c[0]["content"] for c in completions]
+        datasets = kwargs["dataset"]
         rewards = []
-        for content, gt_str in zip(completion_contents, ground_truths):
-            predicted = extract_answer(content)
-            is_correct = math_equal(gt_str, predicted)
-            rewards.append(1.0 if is_correct else 0.0)
+        for completion, gt, dataset in zip(completions, ground_truths, datasets):
+            content = completion[0]["content"]
+            if dataset == "gsm8k":
+                result = gsm8k_verifier([], content, gt)
+            else:
+                result = math_verifier([], content, gt)
+            rewards.append(result.score)
         return rewards
+
 
     trainer = GRPOTrainer(
         model=model_name,

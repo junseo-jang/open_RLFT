@@ -12,9 +12,18 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
+import re
 
 from open_instruct import logger_utils
 from open_instruct.IFEvalG import instructions_registry
+from open_instruct.math_utils import (
+    get_unnormalized_answer,
+    hendrycks_is_equiv,
+    is_equiv,
+    last_boxed_only_string,
+    normalize_final_answer,
+    remove_boxed,
+)
 
 logger = logger_utils.setup_logger(__name__)
 
@@ -189,3 +198,83 @@ class IFEvalVerifier(VerifierFunction):
             else:
                 rewards.append(0.0)
         return VerificationResult(score=sum(rewards) / len(rewards))
+    
+class GSM8KVerifier(VerifierFunction):
+    """
+    Verifier for GSM8K tasks that extracts the last number from the prediction
+    and compares it (case-insensitively) to the ground truth.
+    """
+
+    def __init__(self, verifier_config: VerifierConfig | None = None) -> None:
+        super().__init__("gsm8k", verifier_config=verifier_config, weight=1.0)
+
+    def __call__(
+        self,
+        tokenized_prediction: list[int],
+        prediction: str,
+        label: str,
+        query: str | None = None,
+        rollout_state: dict | None = None,
+    ) -> VerificationResult:
+        response = re.sub(r"(\d),(\d)", r"\1\2", prediction)
+        numbers = re.findall(r"[-+]?\d*\.\d+|\d+", response)
+        extracted = numbers[-1] if numbers else response
+        score = float(str(extracted).lower() == str(label).lower())
+        return VerificationResult(score=score)
+
+
+class MathVerifier(VerifierFunction):
+    """
+    Verifier for math problems.
+
+    Attempts several extraction methods (boxed answers, Minerva format,
+    last LaTeX answer) and compares the extracted answers to the ground truth.
+    """
+
+    def __init__(self, verifier_config: VerifierConfig | None = None) -> None:
+        super().__init__("math", verifier_config=verifier_config, weight=1.0)
+
+    def __call__(
+        self,
+        tokenized_prediction: list[int],
+        prediction: str,
+        label: str,
+        query: str | None = None,
+        rollout_state: dict | None = None,
+    ) -> VerificationResult:
+        raw_answer = prediction
+        all_answers = []
+
+        # Attempt extraction from \boxed{}.
+        boxed_answer = last_boxed_only_string(raw_answer)
+        if boxed_answer is not None:
+            try:
+                boxed_answer = remove_boxed(boxed_answer)
+            except AssertionError:
+                boxed_answer = None
+        if boxed_answer is not None:
+            all_answers.append(boxed_answer)
+
+        # Attempt extraction via Minerva format.
+        minerva_answer = normalize_final_answer(get_unnormalized_answer(raw_answer))
+        if minerva_answer is not None and minerva_answer != "[invalidanswer]":
+            all_answers.append(minerva_answer)
+
+        # Attempt extraction from the last LaTeX-formatted answer.
+        if not all_answers:
+            dollars = [m.start() for m in re.finditer(r"\$", raw_answer)]
+            if len(dollars) > 1:
+                answer = normalize_final_answer(raw_answer[dollars[-2] + 1 : dollars[-1]])
+                all_answers.append(answer)
+
+        # Fallback to the full output.
+        if not all_answers:
+            all_answers.append(normalize_final_answer(prediction))
+            # also provide original string in case normalization fails
+            all_answers.append(prediction)
+
+        # Compare each candidate answer to the ground truth.
+        for answer in all_answers:
+            if is_equiv(answer, label) or hendrycks_is_equiv(answer, label):
+                return VerificationResult(score=1.0)
+        return VerificationResult(score=0.0)
