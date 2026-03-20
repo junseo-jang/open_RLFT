@@ -21,6 +21,10 @@ pip install -e .
 python /root/NeMo-Skills/nemo_skills/dataset/ifeval/prepare.py
 python /root/NeMo-Skills/nemo_skills/dataset/gsm8k/prepare.py
 python /root/NeMo-Skills/nemo_skills/dataset/human-eval/prepare.py
+python /root/NeMo-Skills/nemo_skills/dataset/mbpp/prepare.py
+python /root/NeMo-Skills/nemo_skills/dataset/hendrycks_math/prepare.py
+python /root/NeMo-Skills/nemo_skills/dataset/minerva_math/prepare.py
+python /root/NeMo-Skills/nemo_skills/dataset/ifbench/prepare.py
 
 echo "=== ifeval 평가 의존성 설치 ==="
 mkdir -p /opt/benchmarks
