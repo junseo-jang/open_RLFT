@@ -22,10 +22,19 @@ MATH_SOURCES = {
 
 
 def make_conversation(example):
+    
+    user_prompt = "Solve the following math problem. Make sure to put the answer (and only answer) inside \\boxed{}. \n\n" + example["messages"][0]["content"]
+    
     return {
+        
+        # "prompt": [
+        #     {"role": "system", "content": SYSTEM_PROMPT},
+        #     {"role": "user", "content": example["messages"][0]["content"]},
+        # ],
+        
         "prompt": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": example["messages"][0]["content"]},
+            {"role": "user", "content": user_prompt},
         ],
     }
 
@@ -88,7 +97,7 @@ if __name__ == "__main__":
         # 극단적으로 긴 프롬프트 제거
     def filter_long_prompts(example):
         content = example["prompt"][-1]["content"]  # user message
-        return len(tokenizer.encode(content, add_special_tokens=False)) <= 4096
+        return len(tokenizer.encode(content, add_special_tokens=False)) <= 2048
 
     train_dataset = train_dataset.filter(filter_long_prompts, num_proc=32)
 

@@ -5,7 +5,7 @@ MODEL_DIR="./model/qwen3-1.7b-sft-by-tulu3-subsets"
 PER_DEVICE_TRAIN_BATCH_SIZE=4
 GRADIENT_ACCUMULATION_STEPS=4
 NUM_GENERATIONS=8
-BETA=0.1
+BETA=0.04
 
 
 export WANDB_PROJECT="Open_RLFT"
@@ -42,7 +42,7 @@ trap cleanup SIGINT SIGTERM EXIT
 CUDA_VISIBLE_DEVICES=0 trl vllm-serve \
     --model $MODEL_DIR \
     --gpu-memory-utilization 0.9 \
-    --max-model-len 8192 &
+    --max-model-len 4096 &
 VLLM_PID=$!
 
 echo "vLLM server started at $(date)" | tee -a $LOG_FILE
