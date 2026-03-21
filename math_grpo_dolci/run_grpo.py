@@ -124,6 +124,7 @@ if __name__ == "__main__":
         save_strategy=save_strategy,
         save_steps=save_steps,
         logging_steps=logging_steps,
+        log_completions=True,
         # vLLM
         use_vllm=use_vllm,
         vllm_mode=vllm_mode,
