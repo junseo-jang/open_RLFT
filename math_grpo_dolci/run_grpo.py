@@ -23,13 +23,17 @@ MATH_SOURCES = {
 
 def make_conversation(example):
     
-    user_prompt = "Solve the following math problem. Make sure to put the answer (and only answer) inside \\boxed{}. \n\n" + example["messages"][0]["content"]
+    raw_prompt = example["prompt"]
+    # "user: ..." 형식에서 "user: " 이후 텍스트만 추출
+    if raw_prompt.startswith("user:"):
+        raw_prompt = raw_prompt[len("user:"):].lstrip()
+    user_prompt = "Solve the following math problem. Make sure to put the answer (and only answer) inside \\boxed{}. \n\n" + raw_prompt
     
     return {
         
         # "prompt": [
         #     {"role": "system", "content": SYSTEM_PROMPT},
-        #     {"role": "user", "content": example["messages"][0]["content"]},
+        #     {"role": "user", "content": raw_prompt},
         # ],
         
         "prompt": [
@@ -134,7 +138,7 @@ if __name__ == "__main__":
     math_verifier = MathVerifier()
 
     def math_reward(completions, **kwargs):
-        ground_truths = kwargs["ground_truth"]
+        ground_truths = kwargs["ground_truth"][0]
         rewards = []
         for completion, gt in zip(completions, ground_truths):
             content = completion[0]["content"]
