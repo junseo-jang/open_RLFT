@@ -7,3 +7,4 @@ wandb==0.24.2
 vllm==0.11.1
 litellm
 beaker
+antlr4-python3-runtime==4.11
