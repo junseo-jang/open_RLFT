@@ -14,17 +14,22 @@ cd /root
 git clone https://github.com/NVIDIA/NeMo-Skills.git
 
 
+echo "=== NeMo-Skills 의존성 설치 ==="
+pip install latex2sympy2_extended math_verify
+
 echo "=== NeMo-Skills 설치 ==="
 cd NeMo-Skills
-pip install -e .
+pip install -e . || echo "pip install -e . 실패, PYTHONPATH로 대체합니다"
 
-python /root/NeMo-Skills/nemo_skills/dataset/ifeval/prepare.py
-python /root/NeMo-Skills/nemo_skills/dataset/gsm8k/prepare.py
-python /root/NeMo-Skills/nemo_skills/dataset/human-eval/prepare.py
-python /root/NeMo-Skills/nemo_skills/dataset/mbpp/prepare.py
-python /root/NeMo-Skills/nemo_skills/dataset/hendrycks_math/prepare.py
-python /root/NeMo-Skills/nemo_skills/dataset/minerva_math/prepare.py
-python /root/NeMo-Skills/nemo_skills/dataset/ifbench/prepare.py
+export PYTHONPATH=/root/NeMo-Skills:$PYTHONPATH
+
+python3 /root/NeMo-Skills/nemo_skills/dataset/ifeval/prepare.py
+python3 /root/NeMo-Skills/nemo_skills/dataset/gsm8k/prepare.py
+python3 /root/NeMo-Skills/nemo_skills/dataset/human-eval/prepare.py
+python3 /root/NeMo-Skills/nemo_skills/dataset/mbpp/prepare.py
+python3 /root/NeMo-Skills/nemo_skills/dataset/hendrycks_math/prepare.py
+python3 /root/NeMo-Skills/nemo_skills/dataset/minerva_math/prepare.py
+python3 /root/NeMo-Skills/nemo_skills/dataset/ifbench/prepare.py
 
 echo "=== ifeval 평가 의존성 설치 ==="
 mkdir -p /opt/benchmarks
