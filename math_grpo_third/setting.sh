@@ -16,6 +16,7 @@ git checkout
 cp -r open_instruct /root/open_instruct
 
 # 임시 repo 삭제
+cd /root
 rm -rf /tmp/open-instruct-tmp
 
 # PYTHONPATH는 open_instruct의 "부모" 디렉토리를 넣어야 함
