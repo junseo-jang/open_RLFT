@@ -1,6 +1,6 @@
 torch==2.9.0+cu129
 transformers==4.57.1
-datasets==4.5.0
+datasets==4.7.0
 trl @ git+https://github.com/huggingface/trl.git
 accelerate==1.12.0
 wandb==0.24.2

@@ -5,7 +5,7 @@ from datasets import load_dataset, concatenate_datasets
 import argparse
 import wandb
 # from nemo_skills.evaluation.math_grader import extract_answer, math_equal
-from open_instruct.my_utils import MathVerifier, GSM8KVerifier
+from open_instruct.my_utils import MathVerifier
 
 # ============================================================
 # Dataset 전처리
