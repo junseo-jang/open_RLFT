@@ -13,6 +13,8 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 import re
+import weakref
+import requests
 
 from open_instruct import logger_utils
 from open_instruct.IFEvalG import instructions_registry
@@ -278,3 +280,157 @@ class MathVerifier(VerifierFunction):
             if is_equiv(answer, label) or hendrycks_is_equiv(answer, label):
                 return VerificationResult(score=1.0)
         return VerificationResult(score=0.0)
+    
+@dataclasses.dataclass
+class CodeVerifierConfig(VerifierConfig):
+    code_api_url: str
+    code_max_execution_time: float
+    code_pass_rate_reward_threshold: float
+    code_apply_perf_penalty: bool
+    
+    
+class CodeVerifier(VerifierFunction):
+    """
+    Verifier that executes Python code against test cases using an external API.
+
+    The label should be a list of test cases or a JSON string representation of a list.
+    The API URL should be provided during initialization.
+    """
+
+    # Class-level session cache to reuse connections
+    _session_cache = weakref.WeakKeyDictionary()
+
+    def __init__(self, verifier_config: CodeVerifierConfig) -> None:
+        super().__init__("code", verifier_config=verifier_config, weight=1.0)
+        self.pass_rate_reward_threshold = verifier_config.code_pass_rate_reward_threshold
+        self.apply_perf_penalty = verifier_config.code_apply_perf_penalty
+
+    def extract_python_code(self, model_output: str) -> str:
+        """Extract the last code block between ``` markers from the model output."""
+        # Find content between ``` markers
+        pattern = r"```(?:python)?(.*?)```"
+        matches = re.findall(pattern, model_output, re.DOTALL)
+
+        if not matches:
+            return model_output
+
+        # Return the last match, stripped of whitespace
+        return matches[-1].strip()
+
+    # Create a session pool for better performance
+    _session_pool = None
+
+    @classmethod
+    def _get_session(cls):
+        if cls._session_pool is None:
+            cls._session_pool = requests.Session()
+            # Configure connection pooling
+            adapter = requests.adapters.HTTPAdapter(
+                pool_connections=100,
+                pool_maxsize=100,
+                max_retries=requests.adapters.Retry(
+                    total=3, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504]
+                ),
+            )
+            cls._session_pool.mount("http://", adapter)
+            cls._session_pool.mount("https://", adapter)
+        return cls._session_pool
+
+    async def async_call(
+        self,
+        tokenized_prediction: list[int],
+        prediction: str,
+        label: Any,
+        query: str | None = None,
+        rollout_state: dict | None = None,
+    ) -> VerificationResult:
+        """
+        Asynchronously verify code execution against test cases.
+
+        Args:
+            tokenized_prediction: Unused tokenized representation
+            prediction: The model output containing Python code
+            label: List of test cases or JSON string representation of a list
+            query: Unused original query
+
+        Returns:
+            VerificationResult with score as the pass rate of test cases
+        """
+        # Extract Python code from the model output
+        python_code = self.extract_python_code(prediction)
+
+        # Test data
+        payload = {
+            "program": python_code,
+            "tests": label,
+            "max_execution_time": self.verifier_config.code_max_execution_time,
+        }
+
+        try:
+            # Use connection pooling session
+            session = self._get_session()
+
+            # Calculate timeout
+            http_timeout = max(30, min(300, self.verifier_config.code_max_execution_time * 10))
+
+            # Make request in thread pool to keep it async
+            def make_request():
+                response = session.post(
+                    self.verifier_config.code_api_url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=http_timeout,
+                )
+                response.raise_for_status()
+                return response.json()
+
+            result = await asyncio.to_thread(make_request)
+            passes = result["results"]
+            pass_rate = sum(passes) / len(passes) if passes else 0.0
+            score = 0.0 if pass_rate < self.pass_rate_reward_threshold else pass_rate
+            if self.apply_perf_penalty and score > 0.0:
+                runtimes = result["runtimes"]
+                # for each runtime, multiply the percent of the timeout that was used
+                multipliers = [
+                    (self.verifier_config.code_max_execution_time - runtime)
+                    / self.verifier_config.code_max_execution_time
+                    for runtime in runtimes
+                ]
+                penalized_passes = [passes[i] * multipliers[i] for i in range(len(passes))]
+                score = sum(penalized_passes) / len(penalized_passes)
+            return VerificationResult(score=score)
+        except Exception as e:
+            logger.warning(f"Error verifying code sample: {e}")
+            return VerificationResult(score=0.0)
+
+    def __call__(
+        self,
+        tokenized_prediction: list[int],
+        prediction: str,
+        label: Any,
+        query: str | None = None,
+        rollout_state: dict | None = None,
+    ) -> VerificationResult:
+        """
+        Synchronously verify code execution against test cases.
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                raise RuntimeError(
+                    "Cannot call synchronous __call__ method from within an async context. Use async_call instead."
+                )
+            else:
+                return asyncio.run(self.async_call(tokenized_prediction, prediction, label, query))
+        except RuntimeError:
+            return asyncio.run(self.async_call(tokenized_prediction, prediction, label, query))
+
+    @classmethod
+    def get_config_class(cls) -> type:
+        """
+        Return the configuration class for this verifier.
+
+        Returns:
+            type: The VerifierConfig class or its subclass
+        """
+        return CodeVerifierConfig

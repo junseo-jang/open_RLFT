@@ -1,0 +1,147 @@
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from trl import GRPOTrainer, GRPOConfig
+from datasets import load_dataset
+import argparse
+import wandb
+# from nemo_skills.evaluation.math_grader import extract_answer, math_equal
+from open_instruct.my_utils import CodeVerifier, CodeVerifierConfig
+
+# ============================================================
+# Dataset 전처리
+# ============================================================
+
+SYSTEM_PROMPT = "You are a helpful assistant. Follow the user's instructions carefully."
+
+def make_conversation(example):
+    problem_text = example["prompt"]
+    if problem_text.startswith("user: "):
+        problem_text = problem_text[len("user: "):]
+    return {
+        "prompt": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": problem_text},
+        ],
+    }
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_name", type=str, default="Qwen/Qwen2-0.5B-Instruct")
+    parser.add_argument("--output_dir", type=str, default="./results")
+    parser.add_argument("--learning_rate", type=float, default=1e-5)
+    parser.add_argument("--num_train_epochs", type=int, default=1)
+    parser.add_argument("--max_completion_length", type=int, default=2048)
+    parser.add_argument("--num_generations", type=int, default=8)
+    parser.add_argument("--per_device_train_batch_size", type=int, default=2)
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
+    parser.add_argument("--wandb_project", type=str, default="OpenRLFT")
+    parser.add_argument("--wandb_name", type=str, default="math-third")
+    parser.add_argument("--push_to_hub", type=bool, default=False)
+    parser.add_argument("--save_strategy", type=str, default="steps")
+    parser.add_argument("--save_steps", type=int, default=100)
+    parser.add_argument("--logging_steps", type=int, default=1)
+    parser.add_argument("--use_vllm", type=bool, default=True)
+    parser.add_argument("--vllm_mode", type=str, default="server")
+    parser.add_argument("--vllm_model_impl", type=str, default="vllm")
+    parser.add_argument("--beta", type=float, default=0.01)
+    parser.add_argument("--code_api_url", type=str, required=True)
+    parser.add_argument("--code_max_execution_time", type=float, default=10.0)
+    parser.add_argument("--code_pass_rate_reward_threshold", type=float, default=1.0)
+    parser.add_argument("--code_apply_perf_penalty", type=bool, default=False)
+    parser.add_argument("--dataset_name", type=str, default="openai/humaneval")
+
+    args = parser.parse_args()
+    model_name = args.model_name
+    output_dir = args.output_dir
+    learning_rate = args.learning_rate
+    gradient_accumulation_steps = args.gradient_accumulation_steps
+    per_device_train_batch_size = args.per_device_train_batch_size
+    num_train_epochs = args.num_train_epochs
+    max_completion_length = args.max_completion_length
+    num_generations = args.num_generations
+    wandb_project = args.wandb_project
+    wandb_name = args.wandb_name
+    push_to_hub = args.push_to_hub
+    save_strategy = args.save_strategy
+    save_steps = args.save_steps
+    use_vllm = args.use_vllm
+    vllm_mode = args.vllm_mode
+    vllm_model_impl = args.vllm_model_impl
+    logging_steps = args.logging_steps
+    beta = args.beta
+    dataset_name = args.dataset_name
+
+    # --- 데이터셋 로드 ---
+    train_dataset = load_dataset(dataset_name, split="train")
+    train_dataset = train_dataset.map(make_conversation)
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer.chat_template = tokenizer.chat_template.replace(
+        "{%- if tools %}", "{%- if false %}"
+    )
+
+    # 극단적으로 긴 프롬프트 제거
+    def filter_long_prompts(example):
+        content = example["prompt"][-1]["content"]  # user message
+        return len(tokenizer.encode(content, add_special_tokens=False)) <= 4096
+
+    train_dataset = train_dataset.filter(filter_long_prompts, num_proc=32)
+
+    training_args = GRPOConfig(
+        output_dir=output_dir,
+        learning_rate=learning_rate,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        num_train_epochs=num_train_epochs,
+
+        # Data preprocessing
+        max_completion_length=max_completion_length,
+        num_generations=num_generations,
+        per_device_train_batch_size=per_device_train_batch_size,
+
+        # Reporting and saving
+        report_to=["wandb"],
+        run_name=wandb_name,
+
+        push_to_hub=push_to_hub,
+        save_strategy=save_strategy,
+        save_steps=save_steps,
+        logging_steps=logging_steps,
+        # vLLM
+        use_vllm=use_vllm,
+        vllm_mode=vllm_mode,
+        vllm_model_impl=vllm_model_impl,
+        vllm_server_base_url="http://localhost:8000",
+        chat_template_kwargs={"enable_thinking": False},
+
+        beta=beta
+        )
+
+    # CodeVerifier 설정 및 생성
+    verifier_config = CodeVerifierConfig.from_args(args)
+    code_verifier = CodeVerifier(verifier_config)
+
+    def code_reward(completions, **kwargs):
+        ground_truths = kwargs["ground_truth"]
+        rewards = []
+        for completion, gt in zip(completions, ground_truths):
+            content = completion[0]["content"]
+            result = code_verifier([], content, gt)
+            rewards.append(result.score)
+        return rewards
+
+
+    trainer = GRPOTrainer(
+        model=model_name,
+        reward_funcs=[code_reward],
+        args=training_args,
+        train_dataset=train_dataset,
+        processing_class=tokenizer,
+    )
+    trainer.train()
+    trainer.save_model(training_args.output_dir)
+    if push_to_hub:
+        trainer.push_to_hub(dataset_name=dataset_name, repo_id=output_dir)
