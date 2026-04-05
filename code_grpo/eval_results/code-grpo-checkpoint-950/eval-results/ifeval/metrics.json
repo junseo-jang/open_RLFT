@@ -1,0 +1,16 @@
+{
+  "ifeval": {
+    "pass@1": {
+      "num_prompts": 541,
+      "num_instructions": 834,
+      "average_score": 56.30493756565912,
+      "prompt_strict_accuracy": 49.16820702402958,
+      "instruction_strict_accuracy": 60.431654676258994,
+      "prompt_loose_accuracy": 52.31053604436229,
+      "instruction_loose_accuracy": 63.30935251798561,
+      "num_entries": 541,
+      "avg_tokens": 420,
+      "gen_seconds": 195
+    }
+  }
+}

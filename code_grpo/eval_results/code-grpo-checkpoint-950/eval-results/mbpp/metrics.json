@@ -1,0 +1,11 @@
+{
+  "mbpp": {
+    "pass@1": {
+      "num_entries": 378,
+      "avg_tokens": 57,
+      "gen_seconds": 35,
+      "passing_base_tests": 66.93121693121694,
+      "passing_plus_tests": 55.29100529100529
+    }
+  }
+}

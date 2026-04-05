@@ -8,7 +8,7 @@ NUM_GENERATIONS=8
 BETA=0.04
 WANDB_NAME="code-grpo"
 SAVE_STEPS=100
-CODE_API_URL="http://localhost:1234/execute"
+CODE_API_URL="http://localhost:1234/test_program"
 CODE_API_PORT=1234
 
 

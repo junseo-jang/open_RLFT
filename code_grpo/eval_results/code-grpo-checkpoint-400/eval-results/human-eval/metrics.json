@@ -1,0 +1,11 @@
+{
+  "human-eval": {
+    "pass@1": {
+      "num_entries": 164,
+      "avg_tokens": 103,
+      "gen_seconds": 26,
+      "passing_base_tests": 58.53658536585366,
+      "passing_plus_tests": 51.21951219512195
+    }
+  }
+}

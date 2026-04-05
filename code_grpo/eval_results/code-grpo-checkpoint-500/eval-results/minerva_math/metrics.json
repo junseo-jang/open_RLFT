@@ -1,0 +1,11 @@
+{
+  "minerva_math": {
+    "pass@1": {
+      "num_entries": 272,
+      "avg_tokens": 566,
+      "gen_seconds": 174,
+      "symbolic_correct": 25.0,
+      "no_answer": 7.352941176470588
+    }
+  }
+}

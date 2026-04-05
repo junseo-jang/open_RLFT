@@ -11,7 +11,7 @@ pip install nemo-evaluator-launcher
 echo "=== NeMo-Skills GitHub에서 클론 ==="
 cd /root
 
-git clone https://github.com/NVIDIA/NeMo-Skills.git
+git clone --depth 1 https://github.com/NVIDIA/NeMo-Skills.git
 
 
 echo "=== NeMo-Skills 의존성 설치 ==="
@@ -35,7 +35,10 @@ echo "=== ifeval 평가 의존성 설치 ==="
 mkdir -p /opt/benchmarks
 cd /opt/benchmarks
 if [ ! -d "google-research" ]; then
-    git clone --depth 1 https://github.com/google-research/google-research.git
+    git clone --depth 1 --filter=blob:none --sparse https://github.com/google-research/google-research.git
+    cd google-research
+    git sparse-checkout set instruction_following_eval
+    cd /opt/benchmarks
     echo "google-research 설치 완료"
 else
     echo "google-research 이미 설치됨"

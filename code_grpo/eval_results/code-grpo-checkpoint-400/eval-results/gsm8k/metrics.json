@@ -1,0 +1,11 @@
+{
+  "gsm8k": {
+    "pass@1": {
+      "num_entries": 1319,
+      "avg_tokens": 311,
+      "gen_seconds": 250,
+      "symbolic_correct": 82.1076573161486,
+      "no_answer": 0.22744503411675512
+    }
+  }
+}
