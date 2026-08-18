@@ -73,7 +73,7 @@ bash run_eval.bash
 
 ## Evaluation Results
 
-자세한 평가 결과는 [eval_results.md](../eval_results.md)를 참고하세요.
+자세한 평가 결과는 [eval_results.md](eval_results.md)를 참고하세요.
 
 | Benchmark | Metric | Score |
 |-----------|--------|-------|
